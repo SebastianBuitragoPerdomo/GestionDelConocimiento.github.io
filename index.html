@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>System Blackout</title>
+    <style>
+      :root {
+        --bg: #060d12;
+        --panel-border: #325d70;
+        --green: #32e0a1;
+        --green-dark: #0b6c49;
+        --red: #ff5c6c;
+        --red-dark: #7d1d30;
+        --amber: #ffd166;
+        --blue: #7ec8ff;
+        --purple: #b78cff;
+        --text: #edfaff;
+        --muted: #a8c7d8;
+        --shadow: rgba(0, 0, 0, 0.42);
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        min-height: 100%;
+        background: radial-gradient(circle at top, #1a3241 0%, var(--bg) 45%, #03070a 100%);
+        color: var(--text);
+        font-family: Arial, Helvetica, sans-serif;
+      }
+
+      body {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 28px 16px;
+      }
+
+      .game-shell {
+        width: min(1120px, 100%);
+        background: rgba(8, 14, 18, 0.94);
+        border: 2px solid var(--panel-border);
+        box-shadow: 0 0 0 2px rgba(126, 200, 255, 0.12), 0 25px 60px var(--shadow);
+        padding: 26px 22px 28px;
+        border-radius: 26px;
+      }
+
+      .title {
+        margin: 0 0 10px;
+        text-align: center;
+        font-size: clamp(1.6rem, 3vw, 2.8rem);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        text-shadow: 0 0 18px rgba(126, 200, 255, 0.35);
+      }
+
+      .subtitle {
+        margin: 0 0 20px;
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.96rem;
+      }
+
+      .action-row {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 18px;
+      }
+
+      .action-btn,
+      .restart-btn,
+      .decision-btn {
+        appearance: none;
+        border: 1px solid rgba(126, 200, 255, 0.9);
+        background: linear-gradient(180deg, #143646, #0a212d);
+        color: var(--text);
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+        border-radius: 18px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, border-color 0.2s ease;
+        box-shadow: 0 0 18px rgba(126, 200, 255, 0.12);
+      }
+
+      .action-btn {
+        min-width: min(620px, 92%);
+        padding: 18px 26px;
+        font-size: clamp(0.9rem, 2vw, 1.25rem);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .restart-btn {
+        display: none;
+        margin: 20px auto 0;
+        padding: 12px 22px;
+        font-size: 0.9rem;
+      }
+
+      .decision-btn {
+        width: 100%;
+        padding: 14px 12px;
+        text-align: left;
+        line-height: 1.45;
+        border-width: 2px;
+      }
+
+      .action-btn:hover,
+      .decision-btn:hover,
+      .restart-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 0 26px rgba(126, 200, 255, 0.28);
+      }
+
+      .action-btn:disabled {
+        opacity: 0.72;
+        cursor: not-allowed;
+      }
+
+      .control-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+        gap: 18px;
+      }
+
+      .process-panel {
+        position: relative;
+        min-height: 150px;
+        background: linear-gradient(180deg, rgba(17, 29, 36, 0.95), rgba(8, 18, 24, 0.95));
+        border: 2px solid var(--panel-border);
+        padding: 14px 16px 16px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        border-radius: 18px;
+        transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, background 0.35s ease;
+        user-select: none;
+        overflow: visible;
+      }
+
+      .process-panel.is-ok {
+        border-color: var(--green-dark);
+        box-shadow: inset 0 0 12px rgba(50, 224, 161, 0.1);
+      }
+
+      .process-panel.is-failed {
+        background: linear-gradient(180deg, rgba(78, 17, 22, 0.96), rgba(30, 8, 11, 0.97));
+        border-color: var(--red);
+        box-shadow: inset 0 0 18px rgba(255, 92, 108, 0.17), 0 0 18px rgba(255, 92, 108, 0.18);
+        animation: warningPulse 0.8s ease-in-out infinite alternate;
+      }
+
+      .status-icon {
+        font-size: clamp(1.5rem, 2.2vw, 2.2rem);
+        font-weight: 700;
+        margin-bottom: 10px;
+        transition: color 0.2s ease, text-shadow 0.2s ease;
+      }
+
+      .process-panel.is-ok .status-icon {
+        color: var(--green);
+        text-shadow: 0 0 12px rgba(50, 224, 161, 0.45);
+      }
+
+      .process-panel.is-failed .status-icon {
+        color: #ffd8d8;
+        text-shadow: 0 0 10px rgba(255, 92, 108, 0.7);
+      }
+
+      .panel-name {
+        font-size: clamp(0.9rem, 1.6vw, 1.15rem);
+        line-height: 1.35;
+        letter-spacing: 0.02em;
+        max-width: 32ch;
+      }
+
+      .process-panel.is-failed .panel-name { color: #ffe4e6; }
+
+      .panel-tooltip {
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 12px);
+        transform: translateX(-50%) translateY(8px);
+        width: min(340px, calc(100vw - 48px));
+        padding: 10px 12px;
+        background: rgba(7, 12, 16, 0.98);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        color: var(--text);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.18s ease, transform 0.18s ease;
+        font-size: 0.8rem;
+        line-height: 1.45;
+        text-align: left;
+        border-radius: 12px;
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.36);
+      }
+
+      .process-panel.is-failed:hover .panel-tooltip,
+      .process-panel.is-failed:focus .panel-tooltip,
+      .process-panel.is-failed.is-tooltip-visible .panel-tooltip {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+
+      .path-banner {
+        margin-top: 20px;
+        border-radius: 18px;
+        padding: 14px 16px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        border: 2px solid var(--panel-border);
+        background: rgba(14, 21, 27, 0.8);
+        display: none;
+        animation: bannerPulse 0.7s ease-in-out;
+      }
+
+      .path-banner.visible { display: block; }
+
+      .path-banner.good {
+        background: linear-gradient(90deg, rgba(9, 40, 29, 0.92), rgba(16, 45, 35, 0.82));
+        border-color: rgba(50, 224, 161, 0.9);
+        color: #bafee3;
+      }
+
+      .path-banner.bad {
+        background: linear-gradient(90deg, rgba(60, 16, 20, 0.9), rgba(50, 18, 21, 0.8));
+        border-color: rgba(255, 92, 108, 0.9);
+        color: #ffd6dc;
+      }
+
+      .path-banner.warning {
+        background: linear-gradient(90deg, rgba(58, 43, 12, 0.92), rgba(54, 42, 18, 0.8));
+        border-color: rgba(255, 209, 102, 0.9);
+        color: #ffe8a9;
+      }
+
+      .decision-panel,
+      .systems-panel {
+        margin-top: 26px;
+        border: 1px solid var(--panel-border);
+        background: rgba(12, 18, 24, 0.82);
+        border-radius: 20px;
+        padding: 18px 16px;
+        display: none;
+      }
+
+      .decision-panel.visible,
+      .systems-panel.visible { display: block; }
+
+      .decision-panel h2,
+      .systems-panel h2 {
+        margin: 0 0 14px;
+        font-size: 1.15rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .decision-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+        gap: 12px;
+      }
+
+      .decision-btn {
+        position: relative;
+        overflow: hidden;
+      }
+
+      .decision-btn::before {
+        content: '→';
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 1.2rem;
+        color: var(--blue);
+        opacity: 0.8;
+      }
+
+      .decision-btn strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 1rem;
+      }
+
+      .decision-btn.selected {
+        border-color: rgba(50, 224, 161, 0.9);
+        background: linear-gradient(180deg, #163d3a, #102d34);
+        box-shadow: 0 0 20px rgba(50, 224, 161, 0.18);
+      }
+
+      .systems-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(180px, 1fr));
+        gap: 14px;
+      }
+
+      .system-card {
+        background: rgba(12, 24, 31, 0.88);
+        border: 1px solid var(--panel-border);
+        border-radius: 16px;
+        padding: 12px 12px 10px;
+        min-height: 112px;
+      }
+
+      .system-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+
+      .system-name { font-weight: 700; font-size: 0.92rem; }
+
+      .status-pill {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .status-pill.good {
+        background: rgba(50, 224, 161, 0.13);
+        color: #90ffce;
+        border: 1px solid rgba(50, 224, 161, 0.5);
+      }
+
+      .status-pill.warning {
+        background: rgba(255, 209, 102, 0.12);
+        color: #ffe9a5;
+        border: 1px solid rgba(255, 209, 102, 0.55);
+      }
+
+      .status-pill.bad {
+        background: rgba(255, 92, 108, 0.13);
+        color: #ffc1c8;
+        border: 1px solid rgba(255, 92, 108, 0.55);
+      }
+
+      .system-score {
+        font-size: 1.8rem;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: 7px;
+      }
+
+      .system-note {
+        font-size: 0.75rem;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+
+      .result-box {
+        margin-top: 22px;
+        min-height: 58px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        opacity: 0;
+        transform: translateY(10px);
+        transition: opacity 0.25s ease, transform 0.25s ease;
+      }
+
+      .result-box.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .result-message {
+        font-size: clamp(1rem, 2vw, 1.45rem);
+        font-weight: 700;
+        line-height: 1.5;
+        color: #ffe6a8;
+        text-shadow: 0 0 14px rgba(250, 204, 21, 0.25);
+      }
+
+      .blackout {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.78);
+        opacity: 0;
+        pointer-events: none;
+        z-index: 20;
+      }
+
+      .blackout.active { animation: blackoutFlash 0.9s ease-in-out 1; }
+
+      @keyframes blackoutFlash {
+        0% { opacity: 0; background: rgba(0, 0, 0, 0.1); }
+        15% { opacity: 1; background: rgba(0, 0, 0, 0.9); }
+        35% { opacity: 0.9; background: rgba(115, 0, 0, 0.82); }
+        60% { opacity: 0.35; background: rgba(40, 0, 0, 0.7); }
+        100% { opacity: 0; background: rgba(0, 0, 0, 0.2); }
+      }
+
+      @keyframes warningPulse {
+        from {
+          box-shadow: inset 0 0 18px rgba(255, 92, 108, 0.15), 0 0 10px rgba(255, 92, 108, 0.14);
+        }
+        to {
+          box-shadow: inset 0 0 28px rgba(255, 92, 108, 0.26), 0 0 18px rgba(255, 92, 108, 0.28);
+        }
+      }
+
+      @keyframes bannerPulse {
+        0% { transform: scale(0.98); opacity: 0.5; }
+        100% { transform: scale(1); opacity: 1; }
+      }
+
+      @media (max-width: 760px) {
+        .control-grid,
+        .decision-grid,
+        .systems-grid { grid-template-columns: 1fr; }
+        .game-shell { padding-left: 14px; padding-right: 14px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="game-shell">
+      <h1 class="title">System Blackout: El día en que Ford se quedó sin sus expertos</h1>
+      <p class="subtitle">Cuando el conocimiento tácito desaparece, la empresa no solo pierde talento: pierde criterio, coordinación y capacidad de aprendizaje.</p>
+
+      <div class="action-row">
+        <button id="triggerBtn" class="action-btn" type="button">Despedir a los ingenieros veteranos</button>
+      </div>
+
+      <div class="control-grid">
+        <div class="process-panel is-ok" data-index="0" tabindex="0" aria-label="Detección temprana de fallas">
+          <div class="status-icon">✔</div>
+          <div class="panel-name">Detección temprana de fallas</div>
+          <div class="panel-tooltip">Los sistemas automatizados de IA no lograron igualar el criterio humano para detectar fallas poco comunes. Resultado: aumento de recalls.</div>
+        </div>
+
+        <div class="process-panel is-ok" data-index="1" tabindex="0" aria-label="Revisión de diseño con criterio experto">
+          <div class="status-icon">✔</div>
+          <div class="panel-name">Revisión de diseño con criterio experto</div>
+          <div class="panel-tooltip">Sin ingenieros senior revisando los diseños, defectos que antes se detectaban a tiempo llegaron al mercado.</div>
+        </div>
+
+        <div class="process-panel is-ok" data-index="2" tabindex="0" aria-label="Coordinación entre software, hardware, manufactura y proveedores">
+          <div class="status-icon">✔</div>
+          <div class="panel-name">Coordinación entre software, hardware, manufactura y proveedores</div>
+          <div class="panel-tooltip">Software, hardware, manufactura y proveedores comenzaron a trabajar de forma aislada, sin nadie que conectara el conocimiento entre equipos.</div>
+        </div>
+
+        <div class="process-panel is-ok" data-index="3" tabindex="0" aria-label="Nivel de calidad de la marca">
+          <div class="status-icon">✔</div>
+          <div class="panel-name">Nivel de calidad de la marca</div>
+          <div class="panel-tooltip">Ford cayó al puesto 10 de calidad entre marcas convencionales (estudio J.D. Power).</div>
+        </div>
+      </div>
+
+      <div id="pathBanner" class="path-banner" aria-live="polite">👉 Elige una acción para salvar la empresa</div>
+
+      <div id="decisionPanel" class="decision-panel">
+        <h2>¿Qué recomienda la dirección?</h2>
+        <div class="decision-grid">
+          <button class="decision-btn" data-decision="reduce">
+            <strong>Reducir personal</strong>
+            Corta costos a corto plazo, pero elimina experiencia crítica de la organización.
+          </button>
+          <button class="decision-btn" data-decision="young">
+            <strong>Capacitar a los ingenieros jóvenes</strong>
+            Transfiere conocimiento operativo a la próxima generación.
+          </button>
+          <button class="decision-btn" data-decision="document">
+            <strong>Documentar errores comunes</strong>
+            Registra fallas históricas y lecciones del área de gray beards.
+          </button>
+          <button class="decision-btn" data-decision="automation">
+            <strong>Capacitar a los ingenieros antiguos sobre automatización de calidad</strong>
+            Une criterio humano y nuevas herramientas digitales e IA.
+          </button>
+          <button class="decision-btn" data-decision="mentorship">
+            <strong>Crear mentoría formal</strong>
+            Los expertos entregan conocimiento directo a equipos nuevos y críticos.
+          </button>
+          <button class="decision-btn" data-decision="recruit">
+            <strong>Recontratar a expertos clave</strong>
+            Recupera criterio técnico y liderazgo para estabilizar la operación.
+          </button>
+          <button class="decision-btn" data-decision="shutdown">
+            <strong>Cerrar la planta de ingeniería</strong>
+            Se eliminan los equipos clave y se interrumpe el criterio técnico de la empresa.
+          </button>
+          <button class="decision-btn" data-decision="skipreview">
+            <strong>Eliminar la revisión por expertos</strong>
+            Se acelera el trabajo, pero se desactiva la última línea de control de calidad.
+          </button>
+          <button class="decision-btn" data-decision="outsource">
+            <strong>Subcontratar toda la validación</strong>
+            Se reduce el costo inmediato, pero se pierden los estándares de la empresa.
+          </button>
+          <button class="decision-btn" data-decision="ignorebugs">
+            <strong>Ignorar los defectos conocidos</strong>
+            Se prioriza la producción, aunque se agravan los fallos repetidos y la reputación.
+          </button>
+        </div>
+      </div>
+
+      <div id="systemsPanel" class="systems-panel">
+        <h2>Transcurso de los demás sistemas de la empresa</h2>
+        <div id="systemsGrid" class="systems-grid"></div>
+      </div>
+
+      <div id="resultBox" class="result-box" aria-live="polite">
+        <div class="result-message">RESULTADO: 4.800 millones de dólares al año en recalls. Ford tuvo que recontratar a 350 ingenieros veteranos para revertir el daño.</div>
+      </div>
+
+      <button id="restartBtn" class="restart-btn" type="button">Reiniciar simulación</button>
+    </div>
+
+    <div id="blackout" class="blackout" aria-hidden="true"></div>
+
+    <script>
+      const triggerBtn = document.getElementById('triggerBtn');
+      const restartBtn = document.getElementById('restartBtn');
+      const blackout = document.getElementById('blackout');
+      const resultBox = document.getElementById('resultBox');
+      const pathBanner = document.getElementById('pathBanner');
+      const decisionPanel = document.getElementById('decisionPanel');
+      const systemsPanel = document.getElementById('systemsPanel');
+      const systemsGrid = document.getElementById('systemsGrid');
+      const panels = Array.from(document.querySelectorAll('.process-panel'));
+      const decisionButtons = Array.from(document.querySelectorAll('.decision-btn'));
+
+      const defaultState = {
+        efficiency: 100,
+        quality: 100,
+        learning: 100,
+        profits: 100,
+        retention: 100,
+        suppliers: 100,
+        safety: 100
+      };
+
+      const decisionCatalog = {
+        reduce: {
+          label: 'MAL CAMINO',
+          tone: 'bad',
+          icon: '⚠️',
+          effect: { efficiency: -35, quality: -25, learning: -30, profits: -18, retention: -24, suppliers: -20, safety: -18 },
+          message: 'MAL CAMINO: Al no capacitar a los ingenieros se redujo la eficiencia, la empresa mantuvo su calidad y eficiencia, se ha creado un retrazo en el aprendizaje y el desempeño operativo cayó. La organización perdió velocidad y la cultura técnica se debilitó.'
+        },
+        young: {
+          label: 'BUEN CAMINO',
+          tone: 'good',
+          icon: '✅',
+          effect: { efficiency: 18, quality: 12, learning: 30, profits: 9, retention: 14, suppliers: 10, safety: 12 },
+          message: 'BUEN CAMINO: La empresa mantuvo su calidad y eficiencia, fortaleció la capacidad técnica y redujo el retrazo en el aprendizaje. La próxima generación ya estaba capturando el conocimiento necesario para sostener la operación.'
+        },
+        document: {
+          label: 'CAMINO PARCIAL',
+          tone: 'warning',
+          icon: '📘',
+          effect: { efficiency: 10, quality: 16, learning: 22, profits: 7, retention: 10, suppliers: 12, safety: 14 },
+          message: 'CAMINO PARCIAL: La documentación de fallas y lecciones reduce el riesgo y ayuda a evitar errores repetidos. Se redujo la pérdida de información, pero todavía faltaba experiencia viva para reaccionar rápido ante problemas críticos.'
+        },
+        automation: {
+          label: 'BUEN CAMINO',
+          tone: 'good',
+          icon: '🚀',
+          effect: { efficiency: 28, quality: 24, learning: 18, profits: 20, retention: 12, suppliers: 16, safety: 18 },
+          message: 'BUEN CAMINO: La empresa multiplicó sus ganancias y mejoró la calidad, al combinar el criterio de los ingenieros senior con la automatización. El conocimiento previo se preservó y se usó para construir una operación más inteligente y más segura.'
+        },
+        mentorship: {
+          label: 'BUEN CAMINO',
+          tone: 'good',
+          icon: '🤝',
+          effect: { efficiency: 22, quality: 18, learning: 26, profits: 12, retention: 20, suppliers: 14, safety: 16 },
+          message: 'BUEN CAMINO: La mentoría formal permitió transferir experiencia clave y evitar el bloqueo del conocimiento. La empresa volvió a tener criterio humano en momentos críticos y mejoró su capacidad de aprendizaje.'
+        },
+        recruit: {
+          label: 'CAMINO CORRECTO',
+          tone: 'good',
+          icon: '🛠️',
+          effect: { efficiency: 30, quality: 28, learning: 24, profits: 17, retention: 18, suppliers: 15, safety: 24 },
+          message: 'CAMINO CORRECTO: Recontratar expertos clave redujo el daño inmediato, restauró criterio técnico y estabilizó la operación. La empresa recuperó productividad y mejoró la confianza interna y externa.'
+        },
+        shutdown: {
+          label: 'ALERTA CRÍTICA',
+          tone: 'bad',
+          icon: '⛔',
+          effect: { efficiency: -42, quality: -36, learning: -38, profits: -30, retention: -34, suppliers: -28, safety: -32 },
+          message: 'ALERTA CRÍTICA: Cerrar la planta de ingeniería eliminó el criterio técnico y la coordinación entre especialistas. La empresa perdió capacidad operativa, aumentó los defectos y se cerró la posibilidad de aprender antes de que el daño fuera irreversible.'
+        },
+        skipreview: {
+          label: 'MAL CAMINO',
+          tone: 'bad',
+          icon: '🚫',
+          effect: { efficiency: -24, quality: -40, learning: -28, profits: -22, retention: -18, suppliers: -16, safety: -26 },
+          message: 'MAL CAMINO: Eliminar la revisión por expertos retiró la última línea de control en diseño y calidad. Los errores pasaron a producción, la marca perdió prestigio y la empresa tuvo que corregir problemas mucho más caros.'
+        },
+        outsource: {
+          label: 'ALERTA DE DEPENDENCIA',
+          tone: 'bad',
+          icon: '📦',
+          effect: { efficiency: -18, quality: -28, learning: -24, profits: -20, retention: -16, suppliers: -40, safety: -22 },
+          message: 'ALERTA DE DEPENDENCIA: Subcontratar toda la validación redujo costos inmediatos, pero también redujo el control y el criterio interno. Los proveedores tomaron decisiones sin la visión técnica de la empresa, se debilitaron los estándares y la cadena se volvió más frágil.'
+        },
+        ignorebugs: {
+          label: 'MAL CAMINO',
+          tone: 'bad',
+          icon: '🚨',
+          effect: { efficiency: -20, quality: -35, learning: -32, profits: -26, retention: -12, suppliers: -18, safety: -28 },
+          message: 'MAL CAMINO: Ignorar los defectos conocidos priorizó la producción antes que la confiabilidad. Los errores se repitieron, los recalls aumentaron y la empresa quedó atrapada en un ciclo de corrección mucho más costoso que la prevención.'
+        }
+      };
+
+      const systemDefinitions = [
+        { key: 'efficiency', name: 'Eficiencia operativa', note: 'Ritmo de producción y coordinación' },
+        { key: 'quality', name: 'Calidad del producto', note: 'Recalls, defectos y reputación' },
+        { key: 'learning', name: 'Aprendizaje técnico', note: 'Transferencia del conocimiento' },
+        { key: 'profits', name: 'Ganancias y mercado', note: 'Rentabilidad y competitividad' },
+        { key: 'retention', name: 'Retención del talento', note: 'Capacidad de sostener expertos' },
+        { key: 'suppliers', name: 'Proveedores y logística', note: 'Sincronización de cadena' }
+      ];
+
+      let simulationRunning = false;
+      let timers = [];
+      let companyState = { ...defaultState };
+
+      function clearTimers() {
+        timers.forEach((timer) => clearTimeout(timer));
+        timers = [];
+      }
+
+      function resetPanels() {
+        panels.forEach((panel) => {
+          panel.classList.remove('is-failed', 'is-tooltip-visible');
+          panel.classList.add('is-ok');
+          panel.querySelector('.status-icon').textContent = '✔';
+        });
+      }
+
+      function setPanelFailed(panel) {
+        panel.classList.remove('is-ok');
+        panel.classList.add('is-failed');
+        panel.querySelector('.status-icon').textContent = '⚠';
+      }
+
+      function showTooltip(panel) {
+        if (!panel.classList.contains('is-failed')) return;
+        panel.classList.add('is-tooltip-visible');
+      }
+
+      function hideTooltip(panel) {
+        panel.classList.remove('is-tooltip-visible');
+      }
+
+      function getStatusLabel(value) {
+        if (value >= 70) return { text: 'ÓPTIMO', className: 'good' };
+        if (value >= 40) return { text: 'ALERTA', className: 'warning' };
+        return { text: 'CRÍTICO', className: 'bad' };
+      }
+
+      function renderSystems() {
+        systemsGrid.innerHTML = '';
+
+        systemDefinitions.forEach((system) => {
+          const value = Math.max(0, Math.min(100, companyState[system.key]));
+          const status = getStatusLabel(value);
+
+          const card = document.createElement('div');
+          card.className = 'system-card';
+          card.innerHTML = `
+            <div class="system-top">
+              <span class="system-name">${system.name}</span>
+              <span class="status-pill ${status.className}">${status.text}</span>
+            </div>
+            <div class="system-score">${value}%</div>
+            <div class="system-note">${system.note}</div>
+          `;
+          systemsGrid.appendChild(card);
+        });
+      }
+
+      function showBanner(label, tone, icon) {
+        pathBanner.textContent = `${icon} ${label}`;
+        pathBanner.className = `path-banner visible ${tone}`;
+      }
+
+      function updateDecisionOutcome(decisionKey) {
+        const entry = decisionCatalog[decisionKey];
+        if (!entry) return;
+
+        Object.keys(entry.effect).forEach((key) => {
+          companyState[key] = Math.max(0, Math.min(100, companyState[key] + entry.effect[key]));
+        });
+
+        renderSystems();
+        showBanner(entry.label, entry.tone, entry.icon);
+
+        const summary = document.createElement('div');
+        summary.className = 'result-message';
+        summary.textContent = `${entry.message}`;
+        resultBox.innerHTML = '';
+        resultBox.appendChild(summary);
+        resultBox.classList.add('show');
+
+        resultBox.style.color = entry.tone === 'bad' ? '#ffc8cd' : entry.tone === 'warning' ? '#fff0b0' : '#cbffe0';
+        decisionPanel.classList.remove('visible');
+        triggerBtn.disabled = false;
+        restartBtn.style.display = 'block';
+      }
+
+      function handleDecision(event) {
+        const button = event.currentTarget;
+        const decisionKey = button.dataset.decision;
+
+        decisionButtons.forEach((btn) => btn.classList.remove('selected'));
+        button.classList.add('selected');
+        updateDecisionOutcome(decisionKey);
+      }
+
+      function runSimulation() {
+        if (simulationRunning) return;
+        simulationRunning = true;
+        triggerBtn.disabled = true;
+        restartBtn.style.display = 'none';
+        resultBox.classList.remove('show');
+        pathBanner.className = 'path-banner';
+        clearTimers();
+        resetPanels();
+        decisionPanel.classList.remove('visible');
+        systemsPanel.classList.remove('visible');
+
+        blackout.classList.remove('active');
+        void blackout.offsetWidth;
+        blackout.classList.add('active');
+
+        const delay = 800;
+        panels.forEach((panel, index) => {
+          const timer = setTimeout(() => setPanelFailed(panel), delay * (index + 1));
+          timers.push(timer);
+        });
+
+        const finalTimer = setTimeout(() => {
+          decisionPanel.classList.add('visible');
+          systemsPanel.classList.add('visible');
+          companyState = { ...defaultState };
+          renderSystems();
+          showBanner('👉 Elige una acción para restaurar la empresa', 'warning', '➡️');
+          simulationRunning = false;
+        }, delay * (panels.length + 1));
+
+        timers.push(finalTimer);
+      }
+
+      function resetSimulation() {
+        clearTimers();
+        simulationRunning = false;
+        blackout.classList.remove('active');
+        resultBox.classList.remove('show');
+        restartBtn.style.display = 'none';
+        triggerBtn.disabled = false;
+        decisionPanel.classList.remove('visible');
+        systemsPanel.classList.remove('visible');
+        pathBanner.className = 'path-banner';
+        companyState = { ...defaultState };
+        resetPanels();
+        decisionButtons.forEach((btn) => btn.classList.remove('selected'));
+        renderSystems();
+      }
+
+      triggerBtn.addEventListener('click', runSimulation);
+      restartBtn.addEventListener('click', resetSimulation);
+
+      panels.forEach((panel) => {
+        panel.addEventListener('mouseenter', () => showTooltip(panel));
+        panel.addEventListener('mouseleave', () => hideTooltip(panel));
+        panel.addEventListener('focus', () => showTooltip(panel));
+        panel.addEventListener('blur', () => hideTooltip(panel));
+        panel.addEventListener('click', () => {
+          if (panel.classList.contains('is-failed')) {
+            panel.classList.toggle('is-tooltip-visible');
+          }
+        });
+      });
+
+      decisionButtons.forEach((button) => button.addEventListener('click', handleDecision));
+      companyState = { ...defaultState };
+      renderSystems();
+      showBanner('👉 Elige una acción para restaurar la empresa', 'warning', '➡️');
+      resetSimulation();
+    </script>
+  </body>
+</html>
